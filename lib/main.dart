@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'shoppinglist_controller.dart';
 
 void main() {
   runApp(const MyApp());
@@ -10,7 +12,7 @@ class MyApp extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return GetMaterialApp(
       title: 'Flutter Demo',
       theme: ThemeData(
         primarySwatch: Colors.blue,
@@ -20,19 +22,13 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class Product {
-  final String name;
-  const Product({required this.name});
-}
 
-typedef CartChangeCallback = Function(Product product, bool inCart);
-
-class ShoppingListItem extends StatelessWidget {
-  final bool inCart;
+class ShoppingListItem extends StatelessWidget{
+  bool inCart = false;
   final Product product;
   final CartChangeCallback onCartChanged;
 
-  const ShoppingListItem({Key? key,
+  ShoppingListItem({Key? key,
     required this.inCart,
     required this.product,
     required this.onCartChanged}) : super(key: key);
@@ -40,14 +36,19 @@ class ShoppingListItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     print('shoppingListItem ${product.name} build');
-    return ListTile(
-      onTap: () {
-        onCartChanged(product, inCart);
-      },
-      leading: CircleAvatar(
-        backgroundColor: _getColor(context),
-      ),
-      title: Text(product.name, style: _getTextStyle(),),
+    return GetBuilder<ShoppingListController>(
+      builder: (_) {
+        return ListTile(
+          onTap: () {
+            onCartChanged(product, inCart);
+            inCart = ShoppingListController.to.isInCart(product);
+          },
+          leading: CircleAvatar(
+            backgroundColor: _getColor(context),
+          ),
+          title: Text(product.name, style: _getTextStyle(),),
+        );
+      }
     );
   }
   Color _getColor(BuildContext context) {
@@ -63,39 +64,23 @@ class ShoppingListItem extends StatelessWidget {
   }
 }
 
-class ShoppingList extends StatefulWidget {
-  final List<Product> products;
-  const ShoppingList({Key? key, required this.products}) : super(key: key);
-
-  @override
-  State<ShoppingList> createState() => _ShoppingListState();
-}
-
-class _ShoppingListState extends State<ShoppingList> {
-  final _shoppingCart = <Product>{};
+class ShoppingList extends GetView<ShoppingListController> {
+  List<Product> products = <Product>[];
+  ShoppingList({Key? key, required this.products}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    Get.put(ShoppingListController());
     print('shoppingList build');
     return ListView(
-      children: widget.products.map((product) {
-        return ShoppingListItem(
-            product: product,
-            inCart: _shoppingCart.contains(product),
-            onCartChanged: _handleCartChanged);
-      }).toList(),
-    );
-  }
-
-  void _handleCartChanged(Product product, bool inCart) {
-    setState(() {
-      if (!inCart) {
-        _shoppingCart.add(product);
-      } else {
-        _shoppingCart.remove(product);
+          children: products.map((product) {
+            return ShoppingListItem(
+                product: product,
+                inCart: controller.isInCart(product),
+                onCartChanged: controller.handleCartChanged);
+          }).toList(),
+        );
       }
-    });
-  }
 }
 
 
@@ -109,7 +94,7 @@ class MyHomePage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
           title: Text(title),),
-      body: const Center(
+      body: Center(
         child: ShoppingList(products: [
           Product(name: 'Eggs'),
           Product(name: 'Flour'),
