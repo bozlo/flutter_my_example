@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
-import 'shoppinglist_controller.dart';
+import 'shoppinglist_provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(
+      const ProviderScope(
+        child: MyApp()
+      )
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -12,7 +16,7 @@ class MyApp extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return GetMaterialApp(
+    return MaterialApp(
       title: 'Flutter Demo',
       theme: ThemeData(
         primarySwatch: Colors.blue,
@@ -22,41 +26,48 @@ class MyApp extends StatelessWidget {
   }
 }
 
+final shoppinglistProvider = StateNotifierProvider<ProductList, Set<Product>>((ref) {
+  return ProductList(const {
+      Product(name: 'Eggs'),
+      Product(name: 'Flour'),
+      Product(name: 'Chocolate chips'),
+   });
+});
+
+final shoppingList = Provider<Set<Product>>((ref) => ref.watch(shoppinglistProvider);
+
 
 class ShoppingListItem extends StatelessWidget{
-  bool inCart = false;
-  final Product product;
-  final CartChangeCallback onCartChanged;
 
-  ShoppingListItem({Key? key,
-    required this.inCart,
-    required this.product,
-    required this.onCartChanged}) : super(key: key);
+  final product = <Product>{};
+
+  ShoppingListItem({Key? key, required this.product}) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
-    print('shoppingListItem ${product.name} build');
-    return GetBuilder<ShoppingListController>(
-      builder: (_) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    print('shoppingListItem build');
+    final products = ref.watch(shoppingList);
+
+    return Consumer( builder: (context, ref, _) {
         return ListTile(
           onTap: () {
-            onCartChanged(product, inCart);
-            inCart = ShoppingListController.to.isInCart(product);
+            ref.read(ShoppinglistProvider.notifier).toggle(product.name);
           },
           leading: CircleAvatar(
-            backgroundColor: _getColor(context),
+            backgroundColor: _getColor(context, ref),
           ),
-          title: Text(product.name, style: _getTextStyle(),),
-        );
+          title: Text(product.name, style: _getTextStyle(ref),),
+          );
       }
     );
   }
-  Color _getColor(BuildContext context) {
-    return inCart? Colors.black54 : Theme.of(context).primaryColor;
+
+  Color _getColor(BuildContext context, ref) {
+    return product.isCart ? Colors.black54 : Theme.of(context).primaryColor;
   }
 
-  TextStyle? _getTextStyle() {
-    if (!inCart)  return null;
+  TextStyle? _getTextStyle(ref) {
+    if (!product.isCart)  return null;
     return const TextStyle(
       color: Colors.black54,
       decoration: TextDecoration.lineThrough
@@ -64,20 +75,18 @@ class ShoppingListItem extends StatelessWidget{
   }
 }
 
-class ShoppingList extends GetView<ShoppingListController> {
-  List<Product> products = <Product>[];
-  ShoppingList({Key? key, required this.products}) : super(key: key);
+class ShoppingList extends ConsumerWidget {
+
+  ShoppingList({Key? key}) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
-    Get.put(ShoppingListController());
+  Widget build(BuildContext context, ref) {
+    final products = ref.watch(shoppingList);
     print('shoppingList build');
     return ListView(
           children: products.map((product) {
             return ShoppingListItem(
-                product: product,
-                inCart: controller.isInCart(product),
-                onCartChanged: controller.handleCartChanged);
+                product: product);
           }).toList(),
         );
       }
@@ -96,9 +105,7 @@ class MyHomePage extends StatelessWidget {
           title: Text(title),),
       body: Center(
         child: ShoppingList(products: [
-          Product(name: 'Eggs'),
-          Product(name: 'Flour'),
-          Product(name: 'Chocolate chips'),
+
         ],),
         ),
       );
